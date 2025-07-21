@@ -1,0 +1,263 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// User model
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  password  String?  // Opsiyonel yaptık
+  role      Role     @default(USER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  notifications Notification[] @relation("AdminNotifications")
+
+  // Relations
+  blogPosts     BlogPost[]
+  subscriptions Subscription[]
+  contacts      Contact[]
+  stories       Story[]
+  orders        Order[]  // Sipariş ilişkisi eklendi
+
+  @@map("users")
+}
+
+model Project {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  image       String?  // Yeni eklenen görsel alanı
+  status      String   // 'planning' | 'in_progress' | 'completed' | 'on_hold'
+  priority    String   // 'low' | 'medium' | 'high'
+  client      String
+  startDate   DateTime
+  endDate     DateTime
+  budget      Float
+  currency    String   @default("TRY")
+  tags        String   // JSON string olarak saklanacak
+  progress    Int      @default(0)
+  teamMembers String   // JSON string olarak saklanacak
+  featured    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("projects")
+}
+
+// Blog model
+model BlogPost {
+  id          String   @id @default(cuid())
+  title       String
+  slug        String   @unique
+  content     String   // SQLite için Text yerine String
+  excerpt     String?  // SQLite için Text yerine String
+  image       String?
+  published   Boolean  @default(false)
+  featured    Boolean  @default(false)
+  tags        String?  // JSON string olarak saklanacak
+  seoTitle    String?
+  seoDescription String? // SQLite için Text yerine String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@map("blog_posts")
+}
+
+// Service packages
+model ServicePackage {
+  id                    String   @id @default(cuid())
+  name                  String
+  description           String   // SQLite için Text yerine String
+  shortDescription      String?  // Yeni eklenen
+  price                 Float
+  currency              String   @default("USD") // Yeni eklenen
+  category              String   @default("web-development") // Yeni eklenen
+  features              String   // JSON string olarak saklanacak
+  includedExtraFeatures String?  // Yeni eklenen - JSON string olarak saklanacak
+  duration              String
+  deliveryTime          String?  // Yeni eklenen
+  maxRevisions          Int      @default(3) // Yeni eklenen
+  popular               Boolean  @default(false)
+  active                Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  // Relations
+  subscriptions Subscription[]
+  orders        Order[]  // Sipariş ilişkisi eklendi
+
+  @@map("service_packages")
+}
+
+// Subscription model
+model Subscription {
+  id        String            @id @default(cuid())
+  status    SubscriptionStatus @default(PENDING)
+  startDate DateTime?
+  endDate   DateTime?
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  // Relations
+  userId    String
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  packageId String
+  package   ServicePackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
+
+  @@map("subscriptions")
+}
+
+// Contact form submissions
+model Contact {
+  id        String      @id @default(cuid())
+  name      String
+  email     String
+  subject   String?
+  message   String      // SQLite için Text yerine String
+  status    ContactStatus @default(UNREAD)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  // Relations
+  userId String?
+  user   User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("contacts")
+}
+
+// Story model - Instagram hikayeler benzeri
+model Story {
+  id          String   @id @default(cuid())
+  title       String?
+  image       String   // Hikaye görseli
+  thumbnail   String?  // Küçük görsel (yuvarlak için)
+  description String?
+  active      Boolean  @default(true)
+  viewCount   Int      @default(0)
+  order       Int      @default(0) // Sıralama için
+  expiresAt   DateTime? // Hikayenin sona erme tarihi
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@map("stories")
+}
+
+// Order model - Sipariş sistemi
+model Order {
+  id                String   @id @default(cuid())
+  orderNumber       String   @unique // Sipariş numarası
+  status            OrderStatus @default(PENDING)
+  totalAmount       Float
+  currency          String   @default("TRY")
+  
+  // Site bilgileri
+  siteName          String
+  domain            String?
+  description       String?
+  themeColor        String   @default("#3B82F6")
+  
+  // Seçenekler
+  extraFeatures     String?  // JSON string
+  sslCertificate    Boolean  @default(true)
+  analytics         Boolean  @default(true)
+  fastLoading       Boolean  @default(false)
+  mobileResponsive  Boolean  @default(false)
+  socialMedia       Boolean  @default(false)
+  guestPurchase     Boolean  @default(false)
+  
+  // Tasarım şablonu
+  designTemplate    String?  // JSON string
+  
+  // Ödeme bilgileri
+  paymentStatus     PaymentStatus @default(PENDING)
+  paymentMethod     String?
+  
+  // Fatura adresi
+  billingAddress    String?
+  billingCity       String?
+  billingPostalCode String?
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relations
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  packageId         String
+  package           ServicePackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  
+  @@map("orders")
+}
+
+// Enums
+enum Role {
+  USER
+  ADMIN
+}
+
+enum SubscriptionStatus {
+  PENDING
+  ACTIVE
+  CANCELLED
+  EXPIRED
+}
+
+enum ContactStatus {
+  UNREAD
+  READ
+  REPLIED
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+model AdminNotification {
+  id        String   @id @default(cuid())
+  type      String   // 'order', 'contact', 'user'
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  relatedId String?  // İlgili order, contact vs. ID'si
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("admin_notifications")
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  adminId   String?
+  admin     User?    @relation("AdminNotifications", fields: [adminId], references: [id], onDelete: Cascade)
+}
